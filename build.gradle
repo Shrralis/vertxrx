@@ -1,24 +1,249 @@
-group 'com.shrralis'
-version '1.0-SNAPSHOT'
-
-apply plugin: 'java'
-
-sourceCompatibility = 1.8
+plugins {
+    id 'java'
+    id 'idea'
+    id 'application'
+    id 'io.vertx.vertx-plugin' version '0.0.6'
+    id 'com.github.johnrengelman.shadow' version '1.2.3'
+    id "io.spring.dependency-management" version '1.0.0.RELEASE'
+}
 
 repositories {
+    jcenter()
     mavenCentral()
+    maven { url 'https://jitpack.io' }
+    maven { url "https://oss.sonatype.org/content/repositories/releases" }
 }
+
+ext {
+    versions = [
+            'vertx'                   : '3.5.1',
+            'slf4j'                   : '1.7.25',
+            'logback'                 : '1.2.3',
+            'pac4j'                   : '3.0.1',
+            'spring'                  : '5.0.2.RELEASE',
+            'jmh'                     : '1.19',
+            'junit'                   : '4.12',
+            'hamcrest'                : '2.0.0.0',
+            'lombok'                  : '1.16.20',
+            'rxjava2_jdk8_interop'    : '0.2.7',
+            'rxjava2_extensions'      : '0.18.1',
+            'graphql'                 : '6.0',
+            'arangodb_driver'         : '4.3.2',
+            'arangodb_velocypack'     : '1.0.14',
+            'arangodb_velocypack_jdk8': '1.0.3',
+            'arangodb_spring_data'    : '2.0.1',
+            'mapbox'                  : '2.2.9',
+            'twilio'                  : '7.17.+',
+            'okio'                    : '1.11.0',
+            'nv_i18n'                 : '1.22'
+    ]
+    watchForChange = 'src/**/*'
+    doOnChange = './gradlew classes'
+    baselib = "${rootProject.projectDir}/baselib"
+}
+
+// <editor-fold defaultstate="collapsed" desc="Setup of Project Scopes">
+configurations {
+    lombok
+    provided
+}
+
+idea {
+    module {
+        scopes.PROVIDED.plus += [configurations.lombok]
+    }
+}
+
+sourceSets {
+    main {
+        compileClasspath += configurations.lombok
+    }
+
+    test {
+        compileClasspath += configurations.provided + configurations.lombok
+        runtimeClasspath += configurations.provided + configurations.lombok
+    }
+}
+// </editor-fold>
+
+// <editor-fold defaultstate="collapsed" desc="Setup of Shrralis Server"> //////////////////////////////////////////////
+mainClassName = 'io.vertx.core.Launcher'
+
+shadowJar {
+    classifier = 'fat'
+    baseName = 'vertxrx'
+    classifier = null
+    version = null
+    manifest {
+        attributes "Main-Verticle": "com.shrralis.blog.ShrralisBlog"
+    }
+    mergeServiceFiles {
+        include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
+    }
+}
+
+def mainVerticleName = 'com.shrralis.blog.ShrralisBlog'
+def profile = project.getProperties().containsKey('profile') ? project.getProperties().get('profile') : 'local'
+def confPath = "src/main/resources/${profile}.config.json"
+
+vertx {
+    vertxVersion = '3.5.1'
+    mainVerticle = "${mainVerticleName}"
+    config = "${confPath}"
+
+    redeploy = false
+    watch = ["src/**/*", "${rootProject.projectDir}/**/src/**/*", 'build.gradle', 'yarn.lock']
+    onRedeploy = ['classes', 'webpack']
+
+    args = [
+            profile == 'local'
+                    ? "--java-opts"
+                    : "",
+            profile == 'local'
+                    ? "-server -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8000"
+                    : ""
+            ,
+            "--illegal-access=warn"
+    ]
+
+    debugSuspend = true
+}
+
+processResources {
+    include "**/${profile}.*.*"
+    rename {
+        String filename ->
+            filename.replaceAll("${profile}\\.", '')
+    }
+}
+// </editor-fold>
 
 dependencies {
     // Vertx
-    compile group: 'io.vertx', name: 'vertx-rx-java2', version: '3.5.1'
-    compile group: 'io.vertx', name: 'vertx-web', version: '3.5.1'
-//    compile group: 'io.vertx', name: 'vertx-core', version: '3.5.1'
+    compile "io.vertx:vertx-rx-java2:$versions.vertx"
+    compile "io.vertx:vertx-config:$versions.vertx"
+    compile "io.vertx:vertx-config-hocon:$versions.vertx"
+    compile "io.vertx:vertx-core:$versions.vertx"
+    compile "io.vertx:vertx-unit:$versions.vertx"
+    compile "io.vertx:vertx-web:$versions.vertx"
+    // Spring stuff
+    compile "javax.inject:javax.inject:1"
+    compile "org.springframework:spring-core:$versions.spring"
+    compile "org.springframework:spring-context:$versions.spring"
+    // Arrango DB stuff
+    compile "com.arangodb:velocypack-module-jdk8:$versions.arangodb_velocypack_jdk8"
+    compile("com.arangodb:arangodb-java-driver:$versions.arangodb_driver") {
+        exclude group: 'com.arangodb', module: 'velocypack-module-jdk8'
+    }
+    compile "com.arangodb:velocypack:$versions.arangodb_velocypack"
     // Log tools
-    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.25'
-    compile group: 'ch.qos.logback', name: 'logback-classic', version: '1.2.3'
+    compile "org.slf4j:slf4j-api:$versions.slf4j"
+    compile "ch.qos.logback:logback-classic:$versions.logback"
     // Lombok
-    compileOnly group: 'org.projectlombok', name: 'lombok', version: '1.16.20'
-    // JUnit
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    lombok "org.projectlombok:lombok:$versions.lombok"
+    // Other
+    compile("org.pac4j:vertx-pac4j:$versions.pac4j") {
+        exclude group: 'io.vertx'
+    }
+    compile group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jsr310', version: '2.9.2'
+    compile group: 'com.fasterxml.jackson.datatype', name: 'jackson-datatype-jdk8', version: '2.9.2'
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'idea'
+
+    group 'com.shrralis.blog'
+    version '1.0.0'
+
+    sourceCompatibility = 1.9
+    targetCompatibility = 1.9
+
+    configurations {
+        provided
+        lombok
+    }
+
+    idea {
+        module {
+            scopes.PROVIDED.plus += [configurations.lombok]
+        }
+    }
+
+    [compileJava, compileTestJava].each {
+        it.options.encoding = 'UTF-8'
+        it.options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation" << "--add-modules=java.activation,java.xml.ws.annotation"
+    }
+
+    sourceSets {
+        main {
+            output.resourcesDir = "build/classes/main"
+            compileClasspath += configurations.provided + configurations.lombok
+        }
+
+        test {
+            compileClasspath += configurations.provided + configurations.lombok
+            runtimeClasspath += configurations.provided + configurations.lombok
+        }
+    }
+
+    dependencies {
+        compile "com.github.akarnokd:rxjava2-jdk8-interop:$versions.rxjava2_jdk8_interop"
+        compile "com.github.akarnokd:rxjava2-extensions:$versions.rxjava2_extensions"
+
+        compile "org.springframework:spring-context:$versions.spring"
+        compile "org.springframework:spring-core:$versions.spring"
+        compile "javax.inject:javax.inject:1"
+
+        compile "io.vertx:vertx-rx-java2:$versions.vertx"
+        compile "io.vertx:vertx-rx-java2:$versions.vertx"
+        compile "io.vertx:vertx-config:$versions.vertx"
+        compile "io.vertx:vertx-config-hocon:$versions.vertx"
+        compile "io.vertx:vertx-core:$versions.vertx"
+        compile "io.vertx:vertx-unit:$versions.vertx"
+        compile "io.vertx:vertx-web:$versions.vertx"
+
+        compile("org.pac4j:vertx-pac4j:$versions.pac4j") {
+            exclude group: 'io.vertx'
+        }
+
+        compile "org.pac4j:pac4j-jwt:2.2.1"
+
+        compile "ch.qos.logback:logback-classic:$versions.logback"
+        compile("org.slf4j:slf4j-api:$versions.slf4j") { transitive = false }
+
+        compile "com.arangodb:arangodb-spring-data:$versions.arangodb_spring_data"
+        compile "com.arangodb:velocypack-module-jdk8:$versions.arangodb_velocypack_jdk8"
+        compile("com.arangodb:arangodb-java-driver:$versions.arangodb_driver") {
+            exclude group: 'com.arangodb', module: 'velocypack-module-jdk8'
+        }
+
+        compile group: 'io.swagger', name: 'swagger-core', version: '1.5.18'
+
+        testCompile "junit:junit:$versions.junit"
+        testCompile "io.vertx:vertx-unit:$versions.vertx"
+        testCompile "org.hamcrest:hamcrest-junit:$versions.hamcrest"
+
+        lombok "org.projectlombok:lombok:$versions.lombok"
+    }
+
+    /**
+     * The Resolution Strategy of CI Build
+     */
+    configurations {
+        all {
+            resolutionStrategy {
+                componentSelection {
+                    all { ComponentSelection selection ->
+                        boolean rejected = ['M1', 'M2', 'M3', 'M4', 'RC1', 'RC2', 'EA'].any { qualifier ->
+                            return selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-]*/
+                        }
+                        if (rejected) {
+                            selection.reject('Not a stable release')
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

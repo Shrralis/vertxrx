@@ -1,18 +1,39 @@
 package com.shrralis.blog;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.vertx.core.Future;
+import io.vertx.core.json.Json;
 import io.vertx.reactivex.core.AbstractVerticle;
 import io.vertx.reactivex.core.http.HttpServer;
 import io.vertx.reactivex.ext.web.Router;
 import lombok.extern.slf4j.Slf4j;
 import lombok.val;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 
 @Slf4j
-public class ShrralisBlogVerticle extends AbstractVerticle {
+@Configuration
+@ComponentScan("com.shrralis.**")
+public class ShrralisBlog extends AbstractVerticle {
 
     private static final String ANY_PATH = "/*";
 
     private HttpServer server;
+
+    static {
+        System.setProperty("vertx.logger-delegate-factory-class-name", "io.vertx.core.logging.SLF4JLogDelegateFactory");
+        Json.mapper
+                .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module());
+        Json.prettyMapper
+                .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module())
+                .setSerializationInclusion(JsonInclude.Include.NON_NULL)
+                .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+    }
 
     @Override
     public void start(Future<Void> startup) {

@@ -9,10 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 public class Starter {
 
     public static void main(String[] args) {
-        Single<String> deployment = RxHelper.deployVerticle(Vertx.vertx(), new ShrralisBlogVerticle());
+        Single<String> deployment = RxHelper.deployVerticle(Vertx.vertx(), new ShrralisBlog());
 
         deployment.subscribe(
-            id -> LOGGER.info("SUCCESS with deploying ShrralisBlogVerticle"),
-            err -> LOGGER.error("ERROR with deploying ShrralisBlogVerticle"));
+            id -> LOGGER.info("SUCCESS with deploying ShrralisBlog"),
+            err -> LOGGER.error("ERROR with deploying ShrralisBlog"));
     }
 }
