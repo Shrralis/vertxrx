@@ -33,7 +33,6 @@ ext {
             'arangodb_velocypack_jdk8': '1.0.3',
             'arangodb_spring_data'    : '2.0.1',
             'mapbox'                  : '2.2.9',
-            'twilio'                  : '7.17.+',
             'okio'                    : '1.11.0',
             'nv_i18n'                 : '1.22'
     ]

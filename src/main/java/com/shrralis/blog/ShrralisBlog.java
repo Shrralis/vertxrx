@@ -41,19 +41,21 @@ public class ShrralisBlog extends AbstractVerticle {
         LOGGER.info("Starting server...");
 
         val router = Router.router(vertx);
-        val port = config().getInteger("http.port", 8000);
+        final val port = config().getInteger("http.port", 8000);
 
         router.get("/").handler(req -> req.response().end("You are running ShrralisBlog"));
 
-        server = vertx.createHttpServer().requestHandler(router::accept).listen(port, result -> {
-            if (result.succeeded()) {
-                LOGGER.info("Started ShrralisBlog API on port: {}", port);
-                startup.complete();
-            } else {
-                LOGGER.error("ShrralisBlog API failed on starting up with cause: {}", result.cause());
-                startup.fail(result.cause());
-            }
-        });
+        server = vertx.createHttpServer()
+            .requestHandler(router::accept)
+            .listen(port, result -> {
+                if (result.succeeded()) {
+                    LOGGER.info("Started ShrralisBlog API on port: {}", port);
+                    startup.complete();
+                } else {
+                    LOGGER.error("ShrralisBlog API failed on starting up with cause: {}", result.cause());
+                    startup.fail(result.cause());
+                }
+            });
     }
 
     @Override
